@@ -10,6 +10,7 @@ spreadsheet row rather than a raw file line.
 from __future__ import annotations
 
 import csv
+import io
 import sys
 from pathlib import Path
 
@@ -50,8 +51,50 @@ def parse_coordinates(value: str) -> str | None:
     return None
 
 
+def utf8_record_problem(path: Path) -> str | None:
+    """Name the CSV record that contains the first invalid UTF-8 byte.
+
+    Decoding through TextIOWrapper is the wrong place to count records: it
+    decodes a buffer ahead of the record the parser is on, so the exception
+    lands on an earlier row. The byte offset from decoding the whole file
+    sits on the record that actually contains the bad byte.
+    """
+    try:
+        data = path.read_bytes()
+    except OSError as exc:
+        return f"could not read {path}: {exc.strerror or exc}"
+    try:
+        data.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        prefix = data[: exc.start].decode("utf-8")
+        if prefix == "":
+            return "row 1: file is not valid UTF-8"
+        complete = 0
+        partial = False
+        reader = csv.reader(io.StringIO(prefix), strict=True)
+        try:
+            for _ in reader:
+                complete += 1
+        except csv.Error:
+            # The offset falls inside a quoted field, so the open record
+            # was not counted.
+            partial = True
+        if partial or prefix.endswith(("\n", "\r")):
+            row_number = complete + 1
+        else:
+            # The offset falls inside an unquoted field. The reader treats
+            # end of input as the end of that record and has already counted it.
+            row_number = complete
+        return f"row {row_number}: file is not valid UTF-8"
+    return None
+
+
 def validate(path: Path) -> list[str]:
     """Return one message per problem. An empty list means the file passed."""
+    encoding_problem = utf8_record_problem(path)
+    if encoding_problem:
+        return [encoding_problem]
+
     problems: list[str] = []
     try:
         handle = path.open(newline="", encoding="utf-8")
@@ -102,8 +145,6 @@ def read_record(reader: csv.reader, row_number: int) -> tuple[list[str] | None, 
         return None, "eof"
     except csv.Error as exc:
         return None, f"row {row_number}: invalid CSV ({exc})"
-    except UnicodeDecodeError:
-        return None, f"row {row_number}: row is not valid UTF-8"
 
 
 def main(argv: list[str]) -> int:

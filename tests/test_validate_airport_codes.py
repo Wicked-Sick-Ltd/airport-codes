@@ -16,6 +16,13 @@ import validate_airport_codes as checker  # noqa: E402
 HEADER = ",".join(checker.EXPECTED_HEADER)
 
 
+def write_bytes(contents: bytes) -> Path:
+    handle = tempfile.NamedTemporaryFile(suffix=".csv", delete=False)
+    with handle:
+        handle.write(contents)
+    return Path(handle.name)
+
+
 def write_csv(contents: str) -> Path:
     handle = tempfile.NamedTemporaryFile(
         mode="w",
@@ -137,6 +144,37 @@ class ValidateAirportCodesTest(unittest.TestCase):
         self.assertEqual(
             checker.validate(path),
             ["row 1: invalid CSV (unexpected end of data)"],
+        )
+
+    def test_invalid_utf8_in_a_later_record_names_that_record(self) -> None:
+        prefix = (HEADER + "\n" + valid_row() + "\n").encode("utf-8")
+        broken = (
+            b"BAD,large_airport,Lon\xffdon,83,EU,GB,GB-ENG,London,"
+            b"EGLL,LHR,EGLL,,\"51.47, -0.45\"\n"
+        )
+        path = write_bytes(prefix + broken)
+        self.assertEqual(
+            checker.validate(path),
+            ["row 3: file is not valid UTF-8"],
+        )
+
+    def test_invalid_utf8_inside_a_quoted_field_names_that_record(self) -> None:
+        prefix = (HEADER + "\n" + valid_row() + "\n").encode("utf-8")
+        broken = (
+            b"BAD,large_airport,\"Lon\xffdon\",83,EU,GB,GB-ENG,London,"
+            b"EGLL,LHR,EGLL,,\"51.47, -0.45\"\n"
+        )
+        path = write_bytes(prefix + broken)
+        self.assertEqual(
+            checker.validate(path),
+            ["row 3: file is not valid UTF-8"],
+        )
+
+    def test_invalid_utf8_at_the_start_is_row_one(self) -> None:
+        path = write_bytes(b"\xff" + HEADER.encode("utf-8") + b"\n")
+        self.assertEqual(
+            checker.validate(path),
+            ["row 1: file is not valid UTF-8"],
         )
 
     def test_empty_file_is_row_one(self) -> None:
