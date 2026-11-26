@@ -59,31 +59,51 @@ def validate(path: Path) -> list[str]:
         return [f"could not read {path}: {exc.strerror or exc}"]
 
     with handle:
-        reader = csv.reader(handle)
-        try:
-            header = next(reader)
-        except StopIteration:
+        # strict=True rejects an unterminated quote. The default reader would
+        # otherwise accept a broken final field and report the file as valid.
+        reader = csv.reader(handle, strict=True)
+        header, failure = read_record(reader, 1)
+        if failure == "eof":
             return ["row 1: file is empty"]
-        except UnicodeDecodeError:
-            return [f"{path} is not valid UTF-8"]
-
+        if failure:
+            return [failure]
         if header != EXPECTED_HEADER:
             problems.append(
                 "row 1: header must be exactly "
                 + ",".join(EXPECTED_HEADER)
             )
 
-        for row_number, row in enumerate(reader, start=2):
+        row_number = 2
+        while True:
+            row, failure = read_record(reader, row_number)
+            if failure == "eof":
+                break
+            if failure:
+                problems.append(failure)
+                break
             width = len(row)
             if width != EXPECTED_WIDTH:
                 problems.append(
                     f"row {row_number}: expected {EXPECTED_WIDTH} fields, found {width}"
                 )
-                continue
-            message = parse_coordinates(row[COORDINATES_INDEX])
-            if message:
-                problems.append(f"row {row_number}: {message}")
+            else:
+                message = parse_coordinates(row[COORDINATES_INDEX])
+                if message:
+                    problems.append(f"row {row_number}: {message}")
+            row_number += 1
     return problems
+
+
+def read_record(reader: csv.reader, row_number: int) -> tuple[list[str] | None, str | None]:
+    """Return (row, None), (None, 'eof'), or (None, error message)."""
+    try:
+        return next(reader), None
+    except StopIteration:
+        return None, "eof"
+    except csv.Error as exc:
+        return None, f"row {row_number}: invalid CSV ({exc})"
+    except UnicodeDecodeError:
+        return None, f"row {row_number}: row is not valid UTF-8"
 
 
 def main(argv: list[str]) -> int:

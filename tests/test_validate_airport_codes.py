@@ -121,6 +121,24 @@ class ValidateAirportCodesTest(unittest.TestCase):
             ["row 2: coordinates must be 'lat, lon'"],
         )
 
+    def test_unterminated_quote_is_reported_with_its_record_number(self) -> None:
+        broken = valid_row().replace(
+            '"51.470748, -0.459909"',
+            '"51.470748, -0.459909',
+        )
+        path = write_csv(HEADER + "\n" + valid_row() + "\n" + broken + "\n")
+        self.assertEqual(
+            checker.validate(path),
+            ["row 3: invalid CSV (unexpected end of data)"],
+        )
+
+    def test_unterminated_quote_in_the_header_is_row_one(self) -> None:
+        path = write_csv('"ident,type\n')
+        self.assertEqual(
+            checker.validate(path),
+            ["row 1: invalid CSV (unexpected end of data)"],
+        )
+
     def test_empty_file_is_row_one(self) -> None:
         path = write_csv("")
         self.assertEqual(checker.validate(path), ["row 1: file is empty"])
