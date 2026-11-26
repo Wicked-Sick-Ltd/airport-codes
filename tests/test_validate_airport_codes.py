@@ -170,6 +170,18 @@ class ValidateAirportCodesTest(unittest.TestCase):
             ["row 3: file is not valid UTF-8"],
         )
 
+    def test_invalid_utf8_with_cr_record_separators_names_that_record(self) -> None:
+        prefix = (HEADER + "\r" + valid_row() + "\r").encode("utf-8")
+        broken = (
+            b"BAD,large_airport,Lon\xffdon,83,EU,GB,GB-ENG,London,"
+            b"EGLL,LHR,EGLL,,\"51.47, -0.45\"\r"
+        )
+        path = write_bytes(prefix + broken)
+        self.assertEqual(
+            checker.validate(path),
+            ["row 3: file is not valid UTF-8"],
+        )
+
     def test_invalid_utf8_at_the_start_is_row_one(self) -> None:
         path = write_bytes(b"\xff" + HEADER.encode("utf-8") + b"\n")
         self.assertEqual(

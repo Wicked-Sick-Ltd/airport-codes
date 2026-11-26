@@ -71,7 +71,9 @@ def utf8_record_problem(path: Path) -> str | None:
             return "row 1: file is not valid UTF-8"
         complete = 0
         partial = False
-        reader = csv.reader(io.StringIO(prefix), strict=True)
+        # newline="" matches validate()'s file open. The default StringIO
+        # translates CR, so a CR-only file looks like one unfinished record.
+        reader = csv.reader(io.StringIO(prefix, newline=""), strict=True)
         try:
             for _ in reader:
                 complete += 1
