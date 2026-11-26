@@ -11,6 +11,8 @@ Start from the current `main` branch and use a focused topic branch. Preserve un
 ## Validation
 
 - `git diff --check` — check whitespace in documentation and configuration changes.
+- `python3 scripts/validate_airport_codes.py airport-codes.csv` — check the CSV header, field counts, and co-ordinates.
+- `python3 -m unittest discover -s tests -v` — run the checker tests.
 
 Run the relevant checks before submitting. For documentation-only changes, verify links and commands and run `git diff --check`. Record unavailable dependencies or skipped checks explicitly. Use isolated test data and mock external services where supported.
 
