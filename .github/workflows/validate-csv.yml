@@ -1,0 +1,24 @@
+name: Validate CSV
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: airport-codes.csv
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Check header, field counts, and coordinates
+        run: python3 scripts/validate_airport_codes.py airport-codes.csv
+
+      - name: Run checker tests
+        run: python3 -m unittest discover -s tests -v

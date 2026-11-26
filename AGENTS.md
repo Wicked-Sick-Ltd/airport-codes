@@ -38,6 +38,7 @@ A CSV containing 3 and 4 letter airport codes, their type, elevation and co-ordi
 Run commands from the repository root unless the component documentation says otherwise. Configure local dependencies and test services before application tests.
 
 - `git diff --check` — check whitespace in documentation and configuration changes.
+- `python3 scripts/validate_airport_codes.py airport-codes.csv` — check the CSV header, field counts, and co-ordinates. The same check runs in GitHub Actions (`.github/workflows/validate-csv.yml`).
 
 ## Coding and Testing
 
